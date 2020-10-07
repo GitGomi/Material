@@ -1,0 +1,747 @@
+**************************************************************************************
+**************************https://github.com/GitGomi/Material*************************
+**************************************************************************************
+
+
+**************************************************************************************
+***********************Crear Api Proxy banca-digital-usuarios-v1**********************
+**************************************************************************************
+
+Name: banca-digital-usuarios-v1
+Path: /banca-digital/usuarios/v1
+host: www.apigee.com
+
+Configurar Flows de nuestra API
+
+Proxy Endpoint
+	<Flow name="GET /usuarios">
+            <Condition>(proxy.pathsuffix MatchesPath "/usuarios") and (request.verb = "GET")</Condition>
+            <Description/>
+            <Request/>
+            <Response/>
+        </Flow>
+        <Flow name="GET /usuario">
+            <Condition>(proxy.pathsuffix MatchesPath "/usuarios/*") and (request.verb = "GET")</Condition>
+            <Description/>
+            <Request/>
+            <Response/>
+        </Flow>
+		
+
+
+**************************************************************************************
+**********************************Mocks / Features************************************
+**************************************************************************************
+
+Proxy Endpoint
+Crear RouteRule Mock
+
+<RouteRule name="mock">
+        <Condition>(request.header.x-ismock = "true")</Condition>
+        <TargetEndpoint>mock</TargetEndpoint>
+    </RouteRule>
+
+Target Endpoint
+	Crear Target
+	<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TargetEndpoint name="mock">
+    <Description/>
+    <FaultRules/>
+    <PreFlow name="PreFlow">
+        <Request/>
+        <Response/>
+    </PreFlow>
+    <PostFlow name="PostFlow">
+        <Request/>
+        <Response/>
+    </PostFlow>
+    <Flows/>
+    <HostedTarget/>
+</TargetEndpoint>	
+
+En Resources crear los siguientes archivos
+
+**********************	
+*****package.json*****
+**********************
+{
+  "name": "TriremeUpgrade",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+   "start": "node app.js"
+  },
+  "author": "",
+  "license": "",
+  "description": "TriremeUpgrade",
+  "dependencies": {
+      "apimocker": "^0.4.13"
+  }
+}
+
+
+**********************	
+*******app.js*********
+**********************
+var ApiMocker = require('apimocker');
+
+console.log('apimocker.js application starting...');
+
+var options = {};
+
+var apiMocker = ApiMocker.createServer(options)
+    .setConfigFile('config-generated.json')
+    .start();
+	
+**********************	
+*******app.yaml*******
+**********************
+runtime: node
+runtimeVersion: 8
+env:
+  - name: NODE_ENV
+    value: production
+  - name: LOG_LEVEL
+    value: 3
+
+***********************************
+*******config-generated.json*******
+***********************************
+{
+    "mockDirectory": "./mock",
+    "quiet": false,
+    "port": "9000",
+    "latency": 50,
+    "9": false,
+    "webServices": {
+        "usuarios": {
+            "latency": 10,
+            "verbs": [
+                "get"
+            ],
+            "switch": [
+            ],
+            "responses": {
+                "get": {
+                    "httpStatus": 200,
+                    "mockFile": "ok.json"
+                }
+            },
+            "switchResponses": {
+            }
+        }
+    }
+}
+
+**************************************************************************************
+**********************************Politicas*******************************************
+**************************************************************************************
+
+Politica Spike Arrest
+
+Crear política SpikeArrest - SA-Proteccion-DDOS
+
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<SpikeArrest async="false" continueOnError="false" enabled="true" name="SA-Proteccion-DDOS">
+    <DisplayName>SA-Proteccion-DDOS</DisplayName>
+    <Properties/>
+    <Rate ref="flow.spikearrest.value">10ps</Rate>
+    <UseEffectiveCount>true</UseEffectiveCount>
+</SpikeArrest>
+
+Crear política KeyValueMapOperation - KVM-Extraer-Variable-Spike
+
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="KVM-Extraer-Variable-Spike" mapIdentifier="seguridad-comun-spikearrest-ddos">
+    <DisplayName>KVM-Extraer-Variable-Spike</DisplayName>
+    <Properties/>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get assignTo="flow.spikearrest.value" index="1">
+        <Key>
+            <Parameter ref="apiproxy.name"/>
+        </Key>
+    </Get>
+    <Scope>environment</Scope>
+</KeyValueMapOperations>
+
+**************************************************************************************************************
+Crear API Seguridad Oauth2 - seguridad-oauth2-v1 - /seguridad/oauth2/v1
+
+Crear flow(proxy endpoint) - AccessTokenClientCredential
+
+<Flow name="AccessTokenClientCredential">
+<Description/>
+<Request>
+<Step>
+<Name>BA-Extraer-Consumer-Key</Name>
+</Step>
+<Step>
+<Name>VK-Verficar-Consumer-Key</Name>
+</Step>
+<Step>
+<Name>OA-Generar-Token</Name>
+</Step>
+</Request>
+<Response/>
+<Condition>(proxy.pathsuffix MatchesPath "/token") and (request.verb = "POST")</Condition>
+</Flow>
+
+Crear política BasicAuthentication - BA-Extraer-Consumer-Key
+
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<BasicAuthentication async="false" continueOnError="false" enabled="true" name="BA-Extraer-Consumer-Key">
+    <DisplayName>BA-Extraer-Consumer-Key</DisplayName>
+    <Operation>Decode</Operation>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <User ref="flow.consumerkey"/>
+    <Password ref="flow.consumersecret"/>
+    <Source>request.header.Authorization</Source>
+</BasicAuthentication>
+
+Crear política VerifyAPIKey - VK-Verficar-Consumer-Key
+
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<VerifyAPIKey async="false" continueOnError="false" enabled="true" name="VK-Verficar-Consumer-Key">
+    <DisplayName>VK-Verficar-Consumer-Key</DisplayName>
+    <Properties/>
+    <APIKey ref="flow.consumerkey"/>
+</VerifyAPIKey>
+
+Crear política OAuthV2 - OA-Generar-Token
+
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OAuthV2 name="OA-Generar-Token" continueOnError="false">
+    <Operation>GenerateAccessToken</Operation>
+    <!-- This is in millseconds, so expire in an hour -->
+    <ExpiresIn>3600000</ExpiresIn>
+    <SupportedGrantTypes>
+        <GrantType>client_credentials</GrantType>
+    </SupportedGrantTypes>
+    <GrantType>request.formparam.grant_type</GrantType>
+    <GenerateResponse enabled="true"/>
+</OAuthV2>
+
+***************************
+  *Probar recurso token*
+***************************
+
+POST
+Authorization
+Basic Auth
+Header
+Content-Type - application/x-www-form-urlencoded
+Body - x-www-form-urlencoded
+grant_type - client_credentials
+
+***************************************************************************************************************
+
+Verificación de Access Token
+
+Proxy Endpoint
+Creamos sección - DefaultFaultRule
+<DefaultFaultRule name="fault-rule">
+        <Step>
+            <Condition>(raisefault.RF-ErrorGenerico.failed = true)</Condition>
+            <Name>AM-RespuestaDefault</Name>
+        </Step>
+        <AlwaysEnforce>true</AlwaysEnforce>
+    </DefaultFaultRule>
+
+Preflow
+	Request
+	<Step>
+		<Name>OA-Verifica-Acces-Token</Name>
+	</Step>
+	<Step>
+		<Name>AM-Limpiar-Header-Autorizacion</Name>
+	</Step>
+	<Step>
+		<Condition>(oauthV2.OA-Verifica-Acces-Token.failed = true)</Condition>
+		<Name>AM-Error-Autentificacion</Name>
+	</Step>
+	<Step>
+		<Condition>(flow.error.code != null)</Condition>
+		<Name>RF-ErrorGenerico</Name>
+	</Step>
+	
+Crear política - AssignMessage - AM-RespuestaDefault
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-RespuestaDefault">
+    <DisplayName>AM-RespuestaDefault</DisplayName>
+    <Set>
+        <Headers>
+            <Header name="Content-Type">application/json</Header>
+        </Headers>
+        <Payload contentType="application/json">
+            {
+                "codigo": "{flow.error.code}",
+                "mensaje": "{flow.error.message}",
+                "folio": "{flow.error.folio}",
+                "info": "{flow.error.info}",
+				"detalles": []
+            }
+        </Payload>
+        <StatusCode>{flow.error.http.code}</StatusCode>
+        <ReasonPhrase>{flow.error.http.reason}</ReasonPhrase>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <AssignTo createNew="false" transport="http" type="response"/>
+</AssignMessage>
+	
+	
+Crear política - OAuthV2
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OAuthV2 async="false" continueOnError="true" enabled="true" name="OA-Verifica-Acces-Token">
+    <DisplayName>OA-Verifica-Acces-Token</DisplayName>
+    <Properties/>
+    <Attributes/>
+    <ExternalAuthorization>false</ExternalAuthorization>
+    <Operation>VerifyAccessToken</Operation>
+    <SupportedGrantTypes/>
+    <GenerateResponse enabled="true"/>
+    <Tokens/>
+</OAuthV2>
+
+Crear política - AssignMessage - AM-Limpiar-Header-Autorizacion
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Limpiar-Header-Autorizacion">
+    <DisplayName>AM-Limpiar-Header-Autorizacion</DisplayName>
+    <Remove>
+        <Headers>
+            <Header name="Authorization"/>
+        </Headers>
+    </Remove>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <AssignTo createNew="false" transport="http" type="request"/>
+</AssignMessage>
+
+Crear política - AssignMessage - AM-Error-Autentificacion
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Error-Autentificacion">
+    <DisplayName>AM-Error-Autentificacion</DisplayName>
+    <Properties/>
+    <AssignVariable>
+        <Name>flow.error.code</Name>
+        <Value>OA-5000</Value>
+    </AssignVariable>
+    <AssignVariable>
+        <Name>flow.error.message</Name>
+        <Value>No estas autorizado, favor de validar</Value>
+    </AssignVariable>
+    <AssignVariable>
+        <Name>flow.error.folio</Name>
+        <Ref>messageid</Ref>
+    </AssignVariable>
+    <AssignVariable>
+        <Name>flow.error.info</Name>
+        <Value>https://baz-developer.bancoazteca.com.mx/errors#OA-5000</Value>
+    </AssignVariable>
+    <AssignVariable>
+        <Name>flow.error.http.code</Name>
+        <Value>401</Value>
+    </AssignVariable>
+    <AssignVariable>
+        <Name>flow.error.http.reason</Name>
+        <Value>Unauthorized</Value>
+    </AssignVariable>
+</AssignMessage>
+
+Crear política - RaiseFault - RF-ErrorGenerico
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RaiseFault async="false" continueOnError="false" enabled="true" name="RF-ErrorGenerico">
+    <DisplayName>RF-ErrorGenerico</DisplayName>
+    <Properties/>
+    <FaultResponse/>
+</RaiseFault>
+
+
+
+**********************************************************************
+*********************CONEXION CON BACKEND*****************************
+**********************************************************************
+
+Crear Target Server
+Name: banca-digital-backend
+Host: jsonplaceholder.typicode.com
+Port: 443
+Enable: true
+
+Configurar HTTPTargetConnection
+<Properties/>
+        <LoadBalancer>
+            <Server name="banca-digital-backend" />
+        </LoadBalancer>
+        <Path>/users/{flow.request.targetPath}</Path>
+
+Target Endpoint
+Configurar Flows
+Request cada Flow
+<Flow name="GET /usuarios">
+            <Condition>(proxy.pathsuffix MatchesPath "/usuarios") and (request.verb = "GET")</Condition>
+            <Description/>
+            <Request>                
+                <Step>
+                    <Name>AM-Deshabilita-Path-Suffix</Name>
+                </Step>
+                <Step>
+                    <Name>AM-Target-URL-Usuarios</Name>
+                </Step>
+            </Request>
+            <Response/>
+        </Flow>
+        <Flow name="GET /usuario">
+            <Condition>(proxy.pathsuffix MatchesPath "/usuarios/*") and (request.verb = "GET")</Condition>
+            <Description/>
+            <Request>                
+                <Step>
+                    <Name>AM-Deshabilita-Path-Suffix</Name>
+                </Step>
+                <Step>
+                    <Name>AM-Target-URL-Usuario</Name>
+                </Step>
+            </Request>
+            <Response/>
+        </Flow>
+
+Crear política AssignMessage - AM-Deshabilita-Path-Suffix
+		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+	<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Deshabilita-Path-Suffix">
+		<AssignVariable>
+			<Name>target.copy.pathsuffix</Name>
+			<Value>false</Value>
+		</AssignVariable>
+		<Remove>
+		<QueryParams/>
+		</Remove>
+	</AssignMessage>
+
+Crear política ExtractVariables - EV-Uri-Path-Request
+		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+	<ExtractVariables async="false" continueOnError="false" enabled="true" name="EV-Uri-Path-Request">
+		<DisplayName>EV-Uri-Path-Request</DisplayName>
+		<Source clearPayload="false">request</Source>
+		<VariablePrefix>flow.request</VariablePrefix>
+		<URIPath>
+			<Pattern ignoreCase="false">/usuarios/{idUsuario}</Pattern>
+		</URIPath>
+		<IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+	</ExtractVariables>
+
+Crear AssignMessage - AM-Target-URL-Usuarios
+		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Target-URL-Usuarios">
+    <DisplayName>AM-Target-URL-Usuarios</DisplayName>
+    <AssignVariable>
+        <Name>flow.request.targetPath</Name>
+        <Value/>
+    </AssignVariable>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <AssignTo createNew="false" transport="http" type="request"/>
+</AssignMessage>
+
+Crear AssignMesaage - AM-Target-URL-Usuario
+		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Target-URL-Usuario">
+    <DisplayName>AM-Target-URL-Usuario</DisplayName>
+    <AssignVariable>
+        <Name>flow.request.targetPath</Name>
+        <Ref>flow.request.idUsuario</Ref>
+    </AssignVariable>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <AssignTo createNew="false" transport="http" type="request"/>
+</AssignMessage> 
+
+Para Aceptar saltos de linea en la respuesta agregamos la siguiente política
+Target Endpoint
+	PreFlow
+		Request
+		Crear AssignMessage - AM-Cabecero-Request
+		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Cabecero-Request">
+    <DisplayName>AM-Cabecero-Request</DisplayName>
+    <Properties/>
+    <Set>
+        <Headers>
+            <Header name="Accept-Encoding">application/json</Header>
+        </Headers>
+    </Set>
+    <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+    <AssignTo createNew="false" transport="http" type="request"/>
+</AssignMessage>
+
+Mediación de respuesta del backend
+
+Target Endpoint
+	Preflow
+		Crear política JS - JS-Respuesta-Mediacion
+/**
+ * Constante para obtener el estatus code
+ */
+const ESTATUS_CODE = context.getVariable('message.status.code');
+/**
+ * Constante para obtener el folio de apigee
+ */
+const MESSAGEID = context.getVariable("messageid");
+/**
+ * Constante para obtener el path del recurso
+ */
+const PROXY_PATHSUFFIX = context.getVariable('proxy.pathsuffix');
+/**
+ * Constante para obtener le verbo del recurso
+ */
+const REQUEST_VERB = context.getVariable('request.verb');
+/**
+ * Constante para obtener la respuesta del recurso
+ */
+const RESPONSE_CONTENT = context.getVariable('response.content');
+/**
+ * Info del api
+ */
+const INFO_API = 'https://baz-developer.bancoazteca.com.mx/errors#';
+/**
+ * Nombre del api
+ */
+const NOMBRE_API = '.Banco-Digital-Usuarios.';
+/**
+ * variable para asignar la respuesta mediada
+ */
+var bodyResponse;
+/**
+ * Variable para asignar el detalle del response
+ */
+var detalle;
+/**
+ * Constantes para error 400
+ */
+const [CODIGO_400, REASON_400] = ['400', 'Bad Request'];
+/**
+ * Constantes para error 404
+ */
+const [CODIGO_404, REASON_404] = ['404', 'Not Found'];
+/**
+ * Constantes para error 500
+ */
+const [CODIGO_500, REASON_500] = ['500', 'Internal Server Error'];
+/**
+ * Mensajes api
+ */
+const [MSG_EXITO, MSG_NO_INFO] = ['Operación Exitosa', 'No se encontró información'];
+
+/**
+ * Catalogo de errores
+ */
+const CATALOGO_ERRORES = [
+    { code: 'R1', msg: 'El número de cuenta tiene un tamaño inválido' },
+]
+
+/**
+ * Mediacion
+ */
+if (RESPONSE_CONTENT) {
+    var jsonResponseContent = JSON.parse(RESPONSE_CONTENT);
+    if (jsonResponseContent) {
+        if (ESTATUS_CODE === 200) {
+            switch (PROXY_PATHSUFFIX) {
+                case '/usuarios':
+                    var usuariosGenerados = generarUsuarios(jsonResponseContent, 1);
+                    bodyResponse = {
+                        mensaje: MSG_EXITO,
+                        folio: MESSAGEID,
+                        resultado: {
+                            usuarios: usuariosGenerados
+                        }
+                    }
+                    break;
+                case '/usuarios/*':
+                    var usuariosGenerados = generarUsuarios(jsonResponseContent, 2);
+                    bodyResponse = {
+                        mensaje: MSG_EXITO,
+                        folio: MESSAGEID,
+                        resultado: {
+                            usuarios: usuariosGenerados
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+        } else if (ESTATUS_CODE === 400) {
+            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
+            bodyResponse = {
+                codigo: CODIGO_400 + NOMBRE_API + codigoRespuesta,
+                mensaje: MSG_NO_INFO,
+                folio: MESSAGEID,
+                info: INFO_API + CODIGO_400 + NOMBRE_API + codigoRespuesta,
+                detalles: [
+                    detalle
+                ]
+            }
+            asignarContextos(CODIGO_400, REASON_400);
+        } else if (ESTATUS_CODE === 404) {
+            var codigoStatus = CODIGO_404;
+            var mensajeStatus = REASON_404;
+            if (REQUEST_VERB === 'POST') {
+                codigoStatus = CODIGO_400;
+                mensajeStatus = REASON_400;
+            }
+            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
+            bodyResponse = {
+                codigo: codigoStatus + NOMBRE_API + codigoRespuesta,
+                mensaje: MSG_NO_INFO,
+                folio: MESSAGEID,
+                info: INFO_API + codigoStatus + NOMBRE_API + codigoRespuesta,
+                detalles: [
+                    detalle
+                ]
+            }
+            asignarContextos(codigoStatus, mensajeStatus);
+        } else if (ESTATUS_CODE === 422) {
+            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
+            bodyResponse = {
+                codigo: CODIGO_400 + NOMBRE_API + codigoRespuesta,
+                mensaje: MSG_NO_INFO,
+                folio: MESSAGEID,
+                info: INFO_API + CODIGO_400 + NOMBRE_API + codigoRespuesta,
+                detalles: [
+                    detalle
+                ]
+            }
+            asignarContextos(CODIGO_400, REASON_400);
+        } else if (ESTATUS_CODE === 500) {
+            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
+            bodyResponse = {
+                codigo: CODIGO_500 + NOMBRE_API + codigoRespuesta,
+                mensaje: 'Problemas al procesar su solicitud favor de contactar a su administrador',
+                folio: MESSAGEID,
+                info: INFO_API + CODIGO_500 + NOMBRE_API + codigoRespuesta,
+                detalles: [
+                    detalle
+                ]
+            }
+            asignarContextos(CODIGO_500, REASON_500);
+        }
+        context.setVariable('response.content', JSON.stringify(bodyResponse));
+    }
+}
+
+/**
+ * funcion para validar el codigo de respuesta
+ * @param {*} codigo 
+ */
+function validaCodigoRespuesta(codigo) {
+    if (codigo === undefined) {
+        return -1;
+    } else {
+        return codigo;
+    }
+}
+
+/**
+ * Funcion para generar los usuarios :
+ * 1 = arreglo usuarios ,
+ * 2 = objeto usuarios
+ * @param {*} json
+ * @param {*} tipoUsuario
+ */
+function generarUsuarios(json, tipoUsuario) {
+    var usuarios = [];
+    var usuario;
+
+    if (tipoUsuario === 1) {
+        json.forEach(element => {
+            usuario = {
+                id: element.id,
+                nombre: element.name,
+                codigoPais: element.country,
+                moneda: element.currency,
+                formatoNumeroTelefono: element.mask,
+                comision: element.topup_commission,
+                numeroDigitosTelefono: element.account_number_digits
+            }
+            usuarios.push(usuario);
+        });
+
+    } else if (tipoUsuario === 2) {
+        json.forEach(element => {
+            usuario = {
+                id: element.id,
+                nombre: element.name,
+                codigoPais: element.country,
+                moneda: element.currency,
+                comision: element.gift_card_commission
+            }
+            usuarios.push(usuario);
+        });
+    }
+
+    return usuarios;
+}
+
+/**
+ * Funcion para generar las transacciones
+ * @param {*} json 
+ */
+function generarTransacciones(json) {
+    var transacciones = [];
+    var transaccion;
+
+    json.transactions.forEach(element => {
+        var fechaHC = validaNulls(element.created_at);
+        transaccion = {
+            idTransaccion: element.id,
+            idTransaccionExterno: element.external_id,
+            numeroCuenta: element.account_number,
+            mensajeAutorizacion: element.ticket_text,
+            moneda: element.amount_currency,
+            monto: element.amount,
+            fechaHoraCreacion: fechaHC
+        }
+        transacciones.push(transaccion);
+    });
+
+    return transacciones;
+}
+
+/**
+ * funcion para vlidar si un valor es null, vacio, undefined
+ * @param {*} valorEntrada 
+ */
+function validaNulls(valorEntrada) {
+
+    var valor = '';
+
+    if (valorEntrada) {
+        valor = valorEntrada;
+    }
+
+    return valor;
+}
+
+/**
+ * Funcion para validar si el arreglo de transacciones tiene datos
+ * @param {*} json 
+ */
+function validaTamanioArregloTransacciones(json) {
+
+    var vacio = false;
+
+    if (json.transactions.length === 0) {
+        vacio = true;
+    }
+
+    return vacio;
+}
+
+/**
+ * Funcion para asignar el status code y el reason phrase
+ * @param {*} codigo 
+ * @param {*} reason 
+ */
+function asignarContextos(codigo, reason) {
+    context.setVariable('message.status.code', codigo);
+    context.setVariable('message.reason.phrase', reason);
+}
+
+Politica Response Cache
+...
