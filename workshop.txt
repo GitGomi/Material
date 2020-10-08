@@ -1,4 +1,20 @@
 **************************************************************************************
+*************************************Gitlab Público***********************************
+**************************************************************************************
+
+Anexo info del usuario generado y grupo donde se puede subir la info de su curso.
+
+
+GRUPO: Info Cursos Apigee
+
+
+Usuario General:  usuario.cursos.apigee
+
+Password: Apigee001
+
+Url: http://52.201.60.21/users/sign_in
+
+**************************************************************************************
 **************************https://github.com/GitGomi/Material*************************
 **************************************************************************************
 
@@ -542,61 +558,26 @@ if (RESPONSE_CONTENT) {
     var jsonResponseContent = JSON.parse(RESPONSE_CONTENT);
     if (jsonResponseContent) {
         if (ESTATUS_CODE === 200) {
-            switch (PROXY_PATHSUFFIX) {
-                case '/usuarios':
-                    var usuariosGenerados = generarUsuarios(jsonResponseContent, 1);
-                    bodyResponse = {
-                        mensaje: MSG_EXITO,
-                        folio: MESSAGEID,
-                        resultado: {
-                            usuarios: usuariosGenerados
-                        }
+            var expregIdUsuarios = /\/usuarios\/\d{1,}/;
+            
+            if(PROXY_PATHSUFFIX == '/usuarios' && REQUEST_VERB == "GET"){
+                var usuariosGenerados = generarUsuarios(jsonResponseContent, 1);
+                bodyResponse = {
+                    mensaje: MSG_EXITO,
+                    folio: MESSAGEID,
+                    resultado: {
+                        usuarios: usuariosGenerados
                     }
-                    break;
-                case '/usuarios/*':
-                    var usuariosGenerados = generarUsuarios(jsonResponseContent, 2);
-                    bodyResponse = {
-                        mensaje: MSG_EXITO,
-                        folio: MESSAGEID,
-                        resultado: {
-                            usuarios: usuariosGenerados
-                        }
-                    }
-                    break;
-                default:
-                    break;
+                }
+            }else if (expregIdUsuarios.test(PROXY_PATHSUFFIX) && REQUEST_VERB == "GET") {
+                var usuariosGenerados = generarUsuarios(jsonResponseContent, 2);
+                bodyResponse = {
+                    mensaje: MSG_EXITO,
+                    folio: MESSAGEID,
+                    resultado: usuariosGenerados
+                }
             }
         } else if (ESTATUS_CODE === 400) {
-            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
-            bodyResponse = {
-                codigo: CODIGO_400 + NOMBRE_API + codigoRespuesta,
-                mensaje: MSG_NO_INFO,
-                folio: MESSAGEID,
-                info: INFO_API + CODIGO_400 + NOMBRE_API + codigoRespuesta,
-                detalles: [
-                    detalle
-                ]
-            }
-            asignarContextos(CODIGO_400, REASON_400);
-        } else if (ESTATUS_CODE === 404) {
-            var codigoStatus = CODIGO_404;
-            var mensajeStatus = REASON_404;
-            if (REQUEST_VERB === 'POST') {
-                codigoStatus = CODIGO_400;
-                mensajeStatus = REASON_400;
-            }
-            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
-            bodyResponse = {
-                codigo: codigoStatus + NOMBRE_API + codigoRespuesta,
-                mensaje: MSG_NO_INFO,
-                folio: MESSAGEID,
-                info: INFO_API + codigoStatus + NOMBRE_API + codigoRespuesta,
-                detalles: [
-                    detalle
-                ]
-            }
-            asignarContextos(codigoStatus, mensajeStatus);
-        } else if (ESTATUS_CODE === 422) {
             codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
             bodyResponse = {
                 codigo: CODIGO_400 + NOMBRE_API + codigoRespuesta,
@@ -647,60 +628,51 @@ function validaCodigoRespuesta(codigo) {
 function generarUsuarios(json, tipoUsuario) {
     var usuarios = [];
     var usuario;
+    var domicilioGenerado;
 
     if (tipoUsuario === 1) {
         json.forEach(element => {
+            domicilioGenerado = generarDomicilio(element);
             usuario = {
                 id: element.id,
                 nombre: element.name,
-                codigoPais: element.country,
-                moneda: element.currency,
-                formatoNumeroTelefono: element.mask,
-                comision: element.topup_commission,
-                numeroDigitosTelefono: element.account_number_digits
+                correoElectronico: element.email,
+                numeroTelefono: element.phone,
+                domicilio: domicilioGenerado
             }
             usuarios.push(usuario);
         });
-
+        
+        return usuarios;
     } else if (tipoUsuario === 2) {
-        json.forEach(element => {
-            usuario = {
-                id: element.id,
-                nombre: element.name,
-                codigoPais: element.country,
-                moneda: element.currency,
-                comision: element.gift_card_commission
-            }
-            usuarios.push(usuario);
-        });
+        domicilioGenerado = generarDomicilio(json);
+        usuario = {
+            id: json.id,
+            nombre: json.name,
+            correoElectronico: json.email,
+            numeroTelefono: json.phone,
+            domicilio: domicilioGenerado
+        }
+        
+        return usuario;
     }
-
-    return usuarios;
 }
 
 /**
- * Funcion para generar las transacciones
+ * Funcion para generar los domicilios
  * @param {*} json 
  */
-function generarTransacciones(json) {
-    var transacciones = [];
-    var transaccion;
+function generarDomicilio(json) {
+    var domicilio;
 
-    json.transactions.forEach(element => {
-        var fechaHC = validaNulls(element.created_at);
-        transaccion = {
-            idTransaccion: element.id,
-            idTransaccionExterno: element.external_id,
-            numeroCuenta: element.account_number,
-            mensajeAutorizacion: element.ticket_text,
-            moneda: element.amount_currency,
-            monto: element.amount,
-            fechaHoraCreacion: fechaHC
-        }
-        transacciones.push(transaccion);
-    });
+    domicilio = {
+        calle: json.address.street,
+        numero: json.address.suite,
+        codigoPostal: json.address.zipcode,
+        ciudad: json.address.city
+    }
 
-    return transacciones;
+    return domicilio;
 }
 
 /**
