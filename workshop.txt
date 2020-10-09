@@ -30,6 +30,7 @@ host: www.apigee.com
 Configurar Flows de nuestra API
 
 Proxy Endpoint
+	Flows
 	<Flow name="GET /usuarios">
             <Condition>(proxy.pathsuffix MatchesPath "/usuarios") and (request.verb = "GET")</Condition>
             <Description/>
@@ -58,7 +59,7 @@ Crear RouteRule Mock
     </RouteRule>
 
 Target Endpoint
-	Crear Target
+	Crear Target al darle un (+)
 	<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <TargetEndpoint name="mock">
     <Description/>
@@ -75,7 +76,7 @@ Target Endpoint
     <HostedTarget/>
 </TargetEndpoint>	
 
-En Resources crear los siguientes archivos
+En Resources crear los siguientes archivos como Hosted Target
 
 **********************	
 *****package.json*****
@@ -149,19 +150,73 @@ env:
     }
 }
 
+***********************************
+*************mock/ok.json**********
+***********************************
+
+{
+    "mensaje": "Operación Exitosa",
+    "folio": "22920190128140415938",
+    "resultado": {
+      "usuarios": [
+        {
+          "id": 1,
+          "nombre": "Albert Einstein",
+          "correoElectronico": "suCorreo@info.com",
+          "numeroTelefono": "5544332211",
+          "domicilio": {
+            "calle": "Los manantiales",
+            "numero": "SN",
+            "codigoPostal": "03422",
+            "ciudad": "Ciudad de México"
+          }
+        },
+        {
+          "id": 2,
+          "nombre": "Freddy Krueger",
+          "correoElectronico": "suCorreo@info.com",
+          "numeroTelefono": "5511223344",
+          "domicilio": {
+            "calle": "Corregidora",
+            "numero": "314 Bis",
+            "codigoPostal": "14250",
+            "ciudad": "Ciudad de México"
+          }
+        },
+        {
+          "id": 3,
+          "nombre": "Arnold Schwarzenegger",
+          "correoElectronico": "suCorreo@info.com",
+          "numeroTelefono": "5599887766",
+          "domicilio": {
+            "calle": "Insurgentes Sur",
+            "numero": "3695",
+            "codigoPostal": "77777",
+            "ciudad": "Ciudad de México"
+          }
+        }
+      ]
+    }
+  }
+
+Probar Recurso GET /usuarios
+Colocar Bandera x-ismock true.
+  
 **************************************************************************************
 **********************************Politicas*******************************************
 **************************************************************************************
 
 Politica Spike Arrest
 
-Crear política SpikeArrest - SA-Proteccion-DDOS
+Proxy Endpoint
+	Preflow
 
+Crear política SpikeArrest - SA-Proteccion-DDOS
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <SpikeArrest async="false" continueOnError="false" enabled="true" name="SA-Proteccion-DDOS">
     <DisplayName>SA-Proteccion-DDOS</DisplayName>
     <Properties/>
-    <Rate ref="flow.spikearrest.value">10ps</Rate>
+    <Rate ref="flow.spikearrest.value">15ps</Rate>
     <UseEffectiveCount>true</UseEffectiveCount>
 </SpikeArrest>
 
@@ -182,26 +237,27 @@ Crear política KeyValueMapOperation - KVM-Extraer-Variable-Spike
 </KeyValueMapOperations>
 
 **************************************************************************************************************
-Crear API Seguridad Oauth2 - seguridad-oauth2-v1 - /seguridad/oauth2/v1
+Crear API Seguridad Oauth2 - seguridad-oauth2-v1 - /seguridad/oauth2/v1 (NO HOSTED TARGET)
 
-Crear flow(proxy endpoint) - AccessTokenClientCredential
+Proxy Endpoint
+Crear Flow - AccessTokenClientCredential
 
 <Flow name="AccessTokenClientCredential">
-<Description/>
-<Request>
-<Step>
-<Name>BA-Extraer-Consumer-Key</Name>
-</Step>
-<Step>
-<Name>VK-Verficar-Consumer-Key</Name>
-</Step>
-<Step>
-<Name>OA-Generar-Token</Name>
-</Step>
-</Request>
-<Response/>
-<Condition>(proxy.pathsuffix MatchesPath "/token") and (request.verb = "POST")</Condition>
-</Flow>
+        	<Description/>
+        	<Condition>(proxy.pathsuffix MatchesPath "/token") and (request.verb = "POST")</Condition>
+        	<Request>
+        		<Step>
+        			<Name>BA-Extraer-Consumer-Key</Name>
+        		</Step>
+        		<Step>
+        			<Name>VK-Verficar-Consumer-Key</Name>
+        		</Step>
+        		<Step>
+        			<Name>OA-Generar-Token</Name>
+        		</Step>
+        	</Request>
+        	<Response/>
+        </Flow>
 
 Crear política BasicAuthentication - BA-Extraer-Consumer-Key
 
@@ -242,6 +298,11 @@ Crear política OAuthV2 - OA-Generar-Token
   *Probar recurso token*
 ***************************
 
+Crear componentes principales
+	Producto - (seguridad-oauth2-v1)
+	Desarrollador
+	App
+
 POST
 Authorization
 Basic Auth
@@ -251,11 +312,12 @@ Body - x-www-form-urlencoded
 grant_type - client_credentials
 
 ***************************************************************************************************************
+Regresamos al Api de Usuarios de Banca Digital
 
 Verificación de Access Token
 
 Proxy Endpoint
-Creamos sección - DefaultFaultRule
+Creamos sección - DefaultFaultRule antes del Preflow
 <DefaultFaultRule name="fault-rule">
         <Step>
             <Condition>(raisefault.RF-ErrorGenerico.failed = true)</Condition>
@@ -267,19 +329,29 @@ Creamos sección - DefaultFaultRule
 Preflow
 	Request
 	<Step>
-		<Name>OA-Verifica-Acces-Token</Name>
-	</Step>
-	<Step>
-		<Name>AM-Limpiar-Header-Autorizacion</Name>
-	</Step>
-	<Step>
-		<Condition>(oauthV2.OA-Verifica-Acces-Token.failed = true)</Condition>
-		<Name>AM-Error-Autentificacion</Name>
-	</Step>
-	<Step>
-		<Condition>(flow.error.code != null)</Condition>
-		<Name>RF-ErrorGenerico</Name>
-	</Step>
+        		<Name>OA-Verifica-Acces-Token</Name>
+        	</Step>
+        	<Step>
+        		<Name>AM-Limpiar-Header-Autorizacion</Name>
+        	</Step>
+        	<Step>
+        		<Condition>(oauthV2.OA-Verifica-Acces-Token.failed = true)</Condition>
+        		<Name>AM-Error-Autentificacion</Name>
+        	</Step>
+        	<Step>
+        		<Condition>(flow.error.code != null)</Condition>
+        		<Name>RF-ErrorGenerico</Name>
+        	</Step>
+
+
+Crear política - RaiseFault - RF-ErrorGenerico
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RaiseFault async="false" continueOnError="false" enabled="true" name="RF-ErrorGenerico">
+    <DisplayName>RF-ErrorGenerico</DisplayName>
+    <Properties/>
+    <FaultResponse/>
+</RaiseFault>
+
 	
 Crear política - AssignMessage - AM-RespuestaDefault
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -295,7 +367,9 @@ Crear política - AssignMessage - AM-RespuestaDefault
                 "mensaje": "{flow.error.message}",
                 "folio": "{flow.error.folio}",
                 "info": "{flow.error.info}",
-				"detalles": []
+				"detalles": [
+					"{flow.error.detalles}"
+				]
             }
         </Payload>
         <StatusCode>{flow.error.http.code}</StatusCode>
@@ -353,6 +427,10 @@ Crear política - AssignMessage - AM-Error-Autentificacion
         <Name>flow.error.info</Name>
         <Value>https://baz-developer.bancoazteca.com.mx/errors#OA-5000</Value>
     </AssignVariable>
+	<AssignVariable>
+        <Name>flow.error.detalles</Name>
+        <Value>Sin autorización</Value>
+    </AssignVariable>
     <AssignVariable>
         <Name>flow.error.http.code</Name>
         <Value>401</Value>
@@ -362,15 +440,6 @@ Crear política - AssignMessage - AM-Error-Autentificacion
         <Value>Unauthorized</Value>
     </AssignVariable>
 </AssignMessage>
-
-Crear política - RaiseFault - RF-ErrorGenerico
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<RaiseFault async="false" continueOnError="false" enabled="true" name="RF-ErrorGenerico">
-    <DisplayName>RF-ErrorGenerico</DisplayName>
-    <Properties/>
-    <FaultResponse/>
-</RaiseFault>
-
 
 
 **********************************************************************
@@ -690,20 +759,6 @@ function validaNulls(valorEntrada) {
     return valor;
 }
 
-/**
- * Funcion para validar si el arreglo de transacciones tiene datos
- * @param {*} json 
- */
-function validaTamanioArregloTransacciones(json) {
-
-    var vacio = false;
-
-    if (json.transactions.length === 0) {
-        vacio = true;
-    }
-
-    return vacio;
-}
 
 /**
  * Funcion para asignar el status code y el reason phrase
