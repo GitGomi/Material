@@ -51,7 +51,7 @@ Proxy Endpoint
 **************************************************************************************
 
 Proxy Endpoint
-Crear RouteRule Mock
+Crear RouteRule Mock por encima del "default"
 
 <RouteRule name="mock">
         <Condition>(request.header.x-ismock = "true")</Condition>
@@ -151,7 +151,7 @@ env:
 }
 
 ***********************************
-*************mock/ok.json**********
+*************mock/ok_usuarios.json**********
 ***********************************
 
 {
@@ -221,7 +221,6 @@ Crear política SpikeArrest - SA-Proteccion-DDOS
 </SpikeArrest>
 
 Crear política KeyValueMapOperation - KVM-Extraer-Variable-Spike
-
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="KVM-Extraer-Variable-Spike" mapIdentifier="seguridad-comun-spikearrest-ddos">
     <DisplayName>KVM-Extraer-Variable-Spike</DisplayName>
@@ -235,6 +234,13 @@ Crear política KeyValueMapOperation - KVM-Extraer-Variable-Spike
     </Get>
     <Scope>environment</Scope>
 </KeyValueMapOperations>
+
+Crear un key value maps
+	Environments
+		Key value maps -> seguridad-comun-spikearrest-ddos
+			Add key value pair
+				name = banca-digital-usuarios-v1
+				value = 10pm
 
 **************************************************************************************************************
 Crear API Seguridad Oauth2 - seguridad-oauth2-v1 - /seguridad/oauth2/v1 (NO HOSTED TARGET)
