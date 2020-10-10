@@ -74,7 +74,7 @@ Target Endpoint
     </PostFlow>
     <Flows/>
     <HostedTarget/>
-</TargetEndpoint>	
+</TargetEndpoint>
 
 En Resources crear los siguientes archivos como Hosted Target
 
@@ -141,7 +141,7 @@ env:
             "responses": {
                 "get": {
                     "httpStatus": 200,
-                    "mockFile": "ok.json"
+                    "mockFile": "ok_usuarios.json"
                 }
             },
             "switchResponses": {
@@ -150,10 +150,9 @@ env:
     }
 }
 
-***********************************
+********************************************
 *************mock/ok_usuarios.json**********
-***********************************
-
+********************************************
 {
     "mensaje": "Operación Exitosa",
     "folio": "22920190128140415938",
@@ -240,7 +239,7 @@ Crear un key value maps
 		Key value maps -> seguridad-comun-spikearrest-ddos
 			Add key value pair
 				name = banca-digital-usuarios-v1
-				value = 10pm
+				value = 5pm
 
 **************************************************************************************************************
 Crear API Seguridad Oauth2 - seguridad-oauth2-v1 - /seguridad/oauth2/v1 (NO HOSTED TARGET)
@@ -266,7 +265,6 @@ Crear Flow - AccessTokenClientCredential
         </Flow>
 
 Crear política BasicAuthentication - BA-Extraer-Consumer-Key
-
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <BasicAuthentication async="false" continueOnError="false" enabled="true" name="BA-Extraer-Consumer-Key">
     <DisplayName>BA-Extraer-Consumer-Key</DisplayName>
@@ -278,7 +276,6 @@ Crear política BasicAuthentication - BA-Extraer-Consumer-Key
 </BasicAuthentication>
 
 Crear política VerifyAPIKey - VK-Verficar-Consumer-Key
-
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <VerifyAPIKey async="false" continueOnError="false" enabled="true" name="VK-Verficar-Consumer-Key">
     <DisplayName>VK-Verficar-Consumer-Key</DisplayName>
@@ -287,7 +284,6 @@ Crear política VerifyAPIKey - VK-Verficar-Consumer-Key
 </VerifyAPIKey>
 
 Crear política OAuthV2 - OA-Generar-Token
-
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OAuthV2 name="OA-Generar-Token" continueOnError="false">
     <Operation>GenerateAccessToken</Operation>
@@ -386,7 +382,7 @@ Crear política - AssignMessage - AM-RespuestaDefault
 </AssignMessage>
 	
 	
-Crear política - OAuthV2
+Crear política - OAuthV2 - OA-Verifica-Acces-Token
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OAuthV2 async="false" continueOnError="true" enabled="true" name="OA-Verifica-Acces-Token">
     <DisplayName>OA-Verifica-Acces-Token</DisplayName>
@@ -452,12 +448,16 @@ Crear política - AssignMessage - AM-Error-Autentificacion
 *********************CONEXION CON BACKEND*****************************
 **********************************************************************
 
+https://jsonplaceholder.typicode.com
+
 Crear Target Server
 Name: banca-digital-backend
 Host: jsonplaceholder.typicode.com
 Port: 443
+SSL: true
 Enable: true
 
+Target Endpoint
 Configurar HTTPTargetConnection
 <Properties/>
         <LoadBalancer>
@@ -466,61 +466,47 @@ Configurar HTTPTargetConnection
         <Path>/users/{flow.request.targetPath}</Path>
 
 Target Endpoint
-Configurar Flows
-Request cada Flow
+	Configurar Flows
+		Request cada Flow
 <Flow name="GET /usuarios">
             <Condition>(proxy.pathsuffix MatchesPath "/usuarios") and (request.verb = "GET")</Condition>
             <Description/>
-            <Request>                
-                <Step>
-                    <Name>AM-Deshabilita-Path-Suffix</Name>
-                </Step>
-                <Step>
-                    <Name>AM-Target-URL-Usuarios</Name>
-                </Step>
-            </Request>
+            <Request/>                
             <Response/>
         </Flow>
         <Flow name="GET /usuario">
             <Condition>(proxy.pathsuffix MatchesPath "/usuarios/*") and (request.verb = "GET")</Condition>
             <Description/>
-            <Request>                
-                <Step>
-                    <Name>AM-Deshabilita-Path-Suffix</Name>
-                </Step>
-                <Step>
-                    <Name>AM-Target-URL-Usuario</Name>
-                </Step>
-            </Request>
+            <Request/>
             <Response/>
         </Flow>
 
-Crear política AssignMessage - AM-Deshabilita-Path-Suffix
-		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-	<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Deshabilita-Path-Suffix">
-		<AssignVariable>
-			<Name>target.copy.pathsuffix</Name>
-			<Value>false</Value>
-		</AssignVariable>
-		<Remove>
-		<QueryParams/>
-		</Remove>
-	</AssignMessage>
+Crear política - AssignMessage - AM-Deshabilita-Path-Suffix
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Deshabilita-Path-Suffix">
+	<AssignVariable>
+		<Name>target.copy.pathsuffix</Name>
+		<Value>false</Value>
+	</AssignVariable>
+	<Remove>
+	<QueryParams/>
+	</Remove>
+</AssignMessage>
 
-Crear política ExtractVariables - EV-Uri-Path-Request
-		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-	<ExtractVariables async="false" continueOnError="false" enabled="true" name="EV-Uri-Path-Request">
-		<DisplayName>EV-Uri-Path-Request</DisplayName>
-		<Source clearPayload="false">request</Source>
-		<VariablePrefix>flow.request</VariablePrefix>
-		<URIPath>
-			<Pattern ignoreCase="false">/usuarios/{idUsuario}</Pattern>
-		</URIPath>
-		<IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
-	</ExtractVariables>
+Crear política - ExtractVariables - EV-Uri-Path-Request
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ExtractVariables async="false" continueOnError="false" enabled="true" name="EV-Uri-Path-Request">
+	<DisplayName>EV-Uri-Path-Request</DisplayName>
+	<Source clearPayload="false">request</Source>
+	<VariablePrefix>flow.request</VariablePrefix>
+	<URIPath>
+		<Pattern ignoreCase="false">/usuarios/{idUsuario}</Pattern>
+	</URIPath>
+	<IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</ExtractVariables>
 
-Crear AssignMessage - AM-Target-URL-Usuarios
-		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+Crear política - AssignMessage - AM-Target-URL-Usuarios
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Target-URL-Usuarios">
     <DisplayName>AM-Target-URL-Usuarios</DisplayName>
     <AssignVariable>
@@ -531,8 +517,8 @@ Crear AssignMessage - AM-Target-URL-Usuarios
     <AssignTo createNew="false" transport="http" type="request"/>
 </AssignMessage>
 
-Crear AssignMesaage - AM-Target-URL-Usuario
-		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+Crear política - AssignMesaage - AM-Target-URL-Usuario
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Target-URL-Usuario">
     <DisplayName>AM-Target-URL-Usuario</DisplayName>
     <AssignVariable>
@@ -543,12 +529,26 @@ Crear AssignMesaage - AM-Target-URL-Usuario
     <AssignTo createNew="false" transport="http" type="request"/>
 </AssignMessage> 
 
+Agregamos las políticas creadas a los respectivos Flows
+	/usuarios
+		Request
+			AM-Deshabilita-Path-Suffix
+			AM-Target-URL-Usuarios
+	/usuario
+		Request
+			AM-Deshabilita-Path-Suffix
+			EV-Uri-Path-Request
+			AM-Target-URL-Usuario
+			
+
+Guardamos cambios y probamos recurso GET /usuarios
+
 Para Aceptar saltos de linea en la respuesta agregamos la siguiente política
 Target Endpoint
-	PreFlow
-		Request
-		Crear AssignMessage - AM-Cabecero-Request
-		<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+	Preflow
+		Request	
+Crear política - AssignMessage - AM-Cabecero-Request
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <AssignMessage async="false" continueOnError="false" enabled="true" name="AM-Cabecero-Request">
     <DisplayName>AM-Cabecero-Request</DisplayName>
     <Properties/>
@@ -561,11 +561,16 @@ Target Endpoint
     <AssignTo createNew="false" transport="http" type="request"/>
 </AssignMessage>
 
+Probamos los recursos GET /usuarios y GET /usuario/1
+
+
 Mediación de respuesta del backend
 
 Target Endpoint
 	Preflow
-		Crear política JS - JS-Respuesta-Mediacion
+		Response
+Crear política JS - JS-Respuesta-Mediacion
+
 /**
  * Constante para obtener el estatus code
  */
@@ -615,20 +620,78 @@ const [CODIGO_404, REASON_404] = ['404', 'Not Found'];
  */
 const [CODIGO_500, REASON_500] = ['500', 'Internal Server Error'];
 /**
+ * Constantes para codigo error de backend
+ */
+const CODIGO_ERROR_BACKEND = -1;
+/**
  * Mensajes api
  */
 const [MSG_EXITO, MSG_NO_INFO] = ['Operación Exitosa', 'No se encontró información'];
 
 /**
- * Catalogo de errores
+ * Mediacion
  */
-const CATALOGO_ERRORES = [
-    { code: 'R1', msg: 'El número de cuenta tiene un tamaño inválido' },
-]
+/**
+ * Constante para obtener el estatus code
+ */
+const ESTATUS_CODE = context.getVariable('message.status.code');
+/**
+ * Constante para obtener el folio de apigee
+ */
+const MESSAGEID = context.getVariable("messageid");
+/**
+ * Constante para obtener el path del recurso
+ */
+const PROXY_PATHSUFFIX = context.getVariable('proxy.pathsuffix');
+/**
+ * Constante para obtener le verbo del recurso
+ */
+const REQUEST_VERB = context.getVariable('request.verb');
+/**
+ * Constante para obtener la respuesta del recurso
+ */
+const RESPONSE_CONTENT = context.getVariable('response.content');
+/**
+ * Info del api
+ */
+const INFO_API = 'https://baz-developer.bancoazteca.com.mx/errors#';
+/**
+ * Nombre del api
+ */
+const NOMBRE_API = '.Banco-Digital-Usuarios.';
+/**
+ * variable para asignar la respuesta mediada
+ */
+var bodyResponse;
+/**
+ * Variable para asignar el detalle del response
+ */
+var detalle;
+/**
+ * Constantes para error 400
+ */
+const [CODIGO_400, REASON_400] = ['400', 'Bad Request'];
+/**
+ * Constantes para error 404
+ */
+const [CODIGO_404, REASON_404] = ['404', 'Not Found'];
+/**
+ * Constantes para error 500
+ */
+const [CODIGO_500, REASON_500] = ['500', 'Internal Server Error'];
+/**
+ * Constantes para codigo error de backend
+ */
+const CODIGO_ERROR_BACKEND = -1;
+/**
+ * Mensajes api
+ */
+const [MSG_EXITO, MSG_NO_INFO] = ['Operación Exitosa', 'No se encontró información'];
 
 /**
  * Mediacion
  */
+
 if (RESPONSE_CONTENT) {
     var jsonResponseContent = JSON.parse(RESPONSE_CONTENT);
     if (jsonResponseContent) {
@@ -653,24 +716,22 @@ if (RESPONSE_CONTENT) {
                 }
             }
         } else if (ESTATUS_CODE === 400) {
-            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
             bodyResponse = {
-                codigo: CODIGO_400 + NOMBRE_API + codigoRespuesta,
+                codigo: CODIGO_400 + NOMBRE_API + CODIGO_ERROR_BACKEND,
                 mensaje: MSG_NO_INFO,
                 folio: MESSAGEID,
-                info: INFO_API + CODIGO_400 + NOMBRE_API + codigoRespuesta,
+                info: INFO_API + CODIGO_400 + NOMBRE_API + CODIGO_ERROR_BACKEND,
                 detalles: [
                     detalle
                 ]
             }
             asignarContextos(CODIGO_400, REASON_400);
         } else if (ESTATUS_CODE === 500) {
-            codigoRespuesta = validaCodigoRespuesta(jsonResponseContent.code);
             bodyResponse = {
-                codigo: CODIGO_500 + NOMBRE_API + codigoRespuesta,
+                codigo: CODIGO_500 + NOMBRE_API + CODIGO_ERROR_BACKEND,
                 mensaje: 'Problemas al procesar su solicitud favor de contactar a su administrador',
                 folio: MESSAGEID,
-                info: INFO_API + CODIGO_500 + NOMBRE_API + codigoRespuesta,
+                info: INFO_API + CODIGO_500 + NOMBRE_API + CODIGO_ERROR_BACKEND,
                 detalles: [
                     detalle
                 ]
@@ -681,17 +742,6 @@ if (RESPONSE_CONTENT) {
     }
 }
 
-/**
- * funcion para validar el codigo de respuesta
- * @param {*} codigo 
- */
-function validaCodigoRespuesta(codigo) {
-    if (codigo === undefined) {
-        return -1;
-    } else {
-        return codigo;
-    }
-}
 
 /**
  * Funcion para generar los usuarios :
@@ -750,21 +800,6 @@ function generarDomicilio(json) {
     return domicilio;
 }
 
-/**
- * funcion para vlidar si un valor es null, vacio, undefined
- * @param {*} valorEntrada 
- */
-function validaNulls(valorEntrada) {
-
-    var valor = '';
-
-    if (valorEntrada) {
-        valor = valorEntrada;
-    }
-
-    return valor;
-}
-
 
 /**
  * Funcion para asignar el status code y el reason phrase
@@ -776,5 +811,48 @@ function asignarContextos(codigo, reason) {
     context.setVariable('message.reason.phrase', reason);
 }
 
+********************************
+
 Politica Response Cache
-...
+
+Proxy Endpoint
+	Flow - /usuarios
+		Request
+		
+Target Endpoint
+	Flow - /usuarios
+		Response
+		
+Crear política - ResponseCache - RC-Usuarios
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ResponseCache async="false" continueOnError="false" enabled="true" name="RC-Usuarios">
+    <DisplayName>RC-Usuarios</DisplayName>
+    <Properties/>
+    <CacheKey>
+        <Prefix/>
+        <KeyFragment ref="request.uri" type="string"/>
+    </CacheKey>
+    <Scope>Exclusive</Scope>
+    <ExpirySettings>
+        <ExpiryDate/>
+        <TimeOfDay/>
+        <TimeoutInSec ref="">1800</TimeoutInSec>
+    </ExpirySettings>
+    <SkipCacheLookup/>
+    <SkipCachePopulation/>
+</ResponseCache>
+
+Probar recurso GET /usuarios y notar la diferencia que a la segunda petición ya no baja a backend
+
+Crear recurso cache - usuarios_cache
+	Datos default
+
+Agregamos la referencia al nuevo cache a nuestra política RC-Usuarios
+
+<CacheResource>usuarios_cache</CacheResource>
+
+Limpiamos cache y probamos de nuevo.
+
+************************************************************************************************************
+
+
