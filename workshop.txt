@@ -631,66 +631,6 @@ const [MSG_EXITO, MSG_NO_INFO] = ['Operación Exitosa', 'No se encontró informa
 /**
  * Mediacion
  */
-/**
- * Constante para obtener el estatus code
- */
-const ESTATUS_CODE = context.getVariable('message.status.code');
-/**
- * Constante para obtener el folio de apigee
- */
-const MESSAGEID = context.getVariable("messageid");
-/**
- * Constante para obtener el path del recurso
- */
-const PROXY_PATHSUFFIX = context.getVariable('proxy.pathsuffix');
-/**
- * Constante para obtener le verbo del recurso
- */
-const REQUEST_VERB = context.getVariable('request.verb');
-/**
- * Constante para obtener la respuesta del recurso
- */
-const RESPONSE_CONTENT = context.getVariable('response.content');
-/**
- * Info del api
- */
-const INFO_API = 'https://baz-developer.bancoazteca.com.mx/errors#';
-/**
- * Nombre del api
- */
-const NOMBRE_API = '.Banco-Digital-Usuarios.';
-/**
- * variable para asignar la respuesta mediada
- */
-var bodyResponse;
-/**
- * Variable para asignar el detalle del response
- */
-var detalle;
-/**
- * Constantes para error 400
- */
-const [CODIGO_400, REASON_400] = ['400', 'Bad Request'];
-/**
- * Constantes para error 404
- */
-const [CODIGO_404, REASON_404] = ['404', 'Not Found'];
-/**
- * Constantes para error 500
- */
-const [CODIGO_500, REASON_500] = ['500', 'Internal Server Error'];
-/**
- * Constantes para codigo error de backend
- */
-const CODIGO_ERROR_BACKEND = -1;
-/**
- * Mensajes api
- */
-const [MSG_EXITO, MSG_NO_INFO] = ['Operación Exitosa', 'No se encontró información'];
-
-/**
- * Mediacion
- */
 
 if (RESPONSE_CONTENT) {
     var jsonResponseContent = JSON.parse(RESPONSE_CONTENT);
@@ -852,7 +792,3 @@ Agregamos la referencia al nuevo cache a nuestra política RC-Usuarios
 <CacheResource>usuarios_cache</CacheResource>
 
 Limpiamos cache y probamos de nuevo.
-
-************************************************************************************************************
-
-
